@@ -1,0 +1,15 @@
+.[#]*
+.DS_Store
+.bundle
+.fc-build
+/src/fs_config.fc
+/src/resource.fc
+/res/fs_data.bin
+/map-makoto.json
+castle.*
+/fc
+a.html
+/castle-*.zip
+Thumbs.db
+vendor
+.vscode

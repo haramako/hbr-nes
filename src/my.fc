@@ -1,0 +1,443 @@
+options( bank:0 );
+
+use * from common;
+use en;
+use math;
+use sound;
+use mem;
+
+const STATE_STAND = 0;
+const STATE_JUMP = 2;
+const STATE_LADDER = 3; // はしご
+const STATE_ON_ENEMY = 4;
+const STATE_DAMAGE = 5;
+const STATE_DYING = 6;
+const STATE_DIE = 255;
+
+const SPR_JUMP_WALK = 0*4;
+const SPR_JUMP_UP = 4*4;
+const SPR_JUMP_DOWN = 6*4;
+const SPR_LADDER = 14*4;
+
+var x:int, y:int;
+var my_anim:int;
+var vy:sint;
+var vx:sint;
+var dir:int;
+var state:int;
+var on_idx:int;
+var on_x:int;
+var on_y:int;
+var jump_pow:int;
+var prev_in_water:int;
+var wait:int;
+var last_checkpoint:int;
+var save_in_this_area:int; // このエリアに滞在中にセーブしたか
+
+const ITEM_MAX = 32;
+var items:int[ITEM_MAX] options(segment:"BSS_EX");
+const FLAG_MAX = 32;
+const FLAG_WATERGATE = 31;
+const FLAG_COLORSWITCH = 30;
+var flags:int[FLAG_MAX] options(segment:"BSS_EX");
+const MAP_FLAG_MAX = 64;
+var map_flag:int[MAP_FLAG_MAX] options(segment:"BSS_EX");
+var _padding_for_align:int[128] options(segment:"BSS_EX"); // 256byte alignのため
+
+public function init():void options(segment:"game")
+{
+}
+
+private:
+
+function get_cell(x:int, y:int):int options(fastcall:true)
+{
+	if( y > 240 ){ return 0; }
+	var c = bg.tile_type[bg.data[(y/16)*16 + x/16]];
+	if( c & bg.TYPE_WALL ){
+		if( c & bg.TYPE_FLOOR ){
+			return (y % 16 < 8);
+		}else{
+			return 1;
+		}
+	}else{
+		return 0;
+	}
+}
+
+function get_cell_type(x:int, y:int):int options(fastcall:true)
+{
+	return bg.tile_type[bg.data[(y/16)*16 + x/16]];
+}
+
+function check_on_enemy():int
+{
+	var i:int;
+	for( i, 0, en.MAX ){
+		var et = en.type[i];
+		if( et ){
+			switch( en.type[i] ){
+			case en.TYPE_ELEVATOR:
+				var size:int;
+				if( en.p3[0] == 1 ){ size = 14; }else{ size = 20; }
+				if( math.abs(x-en.px[i])<size && y>=(en.py[i]-18) && y < (en.py[i]-10) ){
+					y = en.py[i] - 16;
+					return i;
+				}
+			case en.TYPE_SLIME:
+				if( items[ITEM_ID_SANDAL] && math.abs(x-en.px[i])<14 && y>=(en.py[i]-12) && y < (en.py[i]-2) ){
+					y = en.py[i] - 10;
+					return i;
+				}
+			case en.TYPE_FROG:
+				if( items[ITEM_ID_BOOTS] && math.abs(x-en.px[i])<14 && y>=(en.py[i]-12) && y < (en.py[i]-2) ){
+					y = en.py[i] - 10;
+					return i;
+				}
+			case en.TYPE_SWITCH, en.TYPE_WATERGATE:
+				if( math.abs(x-en.px[i])<14 && y>=(en.py[i]-16) && y < (en.py[i]-10) ){
+					y = en.py[i] - 16;
+					return i;
+				}
+			case en.TYPE_SWITCH, en.TYPE_COLORSWITCH:
+				if( math.abs(x-en.px[i])<10 && y>=(en.py[i]-6) && y < (en.py[i]-2) ){
+					y = en.py[i] - 6;
+					return i;
+				}
+			}
+		}
+	}
+	return -1;
+}
+
+function do_grobe():void
+{
+	if( anim % 32 == 0 && vx != 0 && items[ITEM_ID_GROBE]){
+		var block_x = x + math.sign(vx)*9;
+		if( bg.cell( block_x,y) == 29 ){
+			var i = en.new();
+			if( i != -1 ){
+				en.type[i] = en.TYPE_BLOCK;
+				en.px[i] = block_x/16*16+8;
+				en.py[i] = y/16*16+8;
+				en.p1[i] = math.sign(vx);
+			}
+		}
+	}
+}
+
+function check_block():int
+{
+	var r = 0;
+	
+	// 下方向
+	if( get_cell(x+4,y+8) || get_cell(x-4,y+8) ){
+		y = (y+8)/16*16 - 8;
+		r = en.DIR_MASK_DOWN;
+	}
+
+	// 上方向
+	var i:int;
+	var head_y = y - 5;
+	var mod16 = head_y % 16;
+	for( i, 0, 2 ){
+		var c = bg.cell_type(x-4+i*8,head_y);
+		if( c == bg.TYPE_WALL ){
+			y = head_y/16*16 + (16 + 5);
+			r = r | en.DIR_MASK_UP;
+		}elsif( (c & bg.TYPE_FLOOR) && mod16 < 8 ){
+			y = head_y/16*16 + (8 + 5);
+			r = r | en.DIR_MASK_UP;
+		}
+	}
+	
+	// 右方向
+	if( get_cell(x+5,y+6) || get_cell(x+5,y+1) || get_cell(x+5,y-4) ){
+		x = (x+6)/16*16 - 6;
+		r = r | en.DIR_MASK_RIGHT;
+	}
+
+	// 左方向
+	if( get_cell(x-5,y+6) || get_cell(x-5,y+1) || get_cell(x-5,y-4) ){
+		x = (x-5)/16*16 + 16 + 5;
+		r = r | en.DIR_MASK_LEFT;
+	}
+	
+	return r;
+}
+
+public function process():void
+{
+	// 水の中の処理
+	var bi:int;
+	var in_water = get_cell_type(x,y) & bg.TYPE_WATER;
+	if( prev_in_water ^ in_water ){
+		// 水に飛び込んだ飛沫を表示
+		bi = en.new();
+		en.type[bi] = en.TYPE_SPLASH;
+		en.px[bi] = x;
+		en.py[bi] = (y+8)/16*16+8;
+		en.p1[bi] = 8;
+	}
+	if( in_water ){
+		if( anim % 64 == 0 ){
+			bi = en.new();
+			en.type[bi] = en.TYPE_BUBBLE;
+			en.px[bi] = x;
+			en.py[bi] = y;
+		}
+		if( anim % 2 ){	pad.cur = pad.prev; return; }
+	}
+	prev_in_water = in_water;
+	var limited_water = in_water && (items[ITEM_ID_WEIGHT]==0);
+	
+	var hit:int;
+	switch( state ){
+	case STATE_STAND, STATE_ON_ENEMY:
+		// 地上
+		my_anim += 1;
+		
+		// 左右移動
+		if( pad.cur & pad.RIGHT ){ vx += 4; dir = 0; }
+		if( pad.cur & pad.LEFT ){ vx -= 4; dir = 1; }
+		if( !(pad.cur & (pad.RIGHT|pad.LEFT)) ){ vx = 0; my_anim = 0; }
+		if( vx < -16 ){ vx = -16; }
+		if( vx > 16 ){ vx = 16; }
+
+		var evx = 0, evy = 0;
+		if( state == STATE_ON_ENEMY ){
+			// 敵に乗ってる
+			var ei = on_idx;
+			evx += en.px[ei] - on_x;
+			evy += en.py[ei] - on_y;
+			on_x = en.px[ei];
+			on_y = en.py[ei];
+		}
+		
+		x += (vx+giff)/16 + evx;
+		y += evy;
+
+		// グローブで押す
+		do_grobe();
+
+		hit = check_block();
+
+		if( (pad.cur & pad.UP) && get_cell_type(x,y) & bg.TYPE_LADDER && math.abs(x%16-8) <= 4 ){
+			// はしごに登り始める
+			vx = 0;
+			state = STATE_LADDER;
+		}elsif( (pad.cur & pad.DOWN) && get_cell_type(x,y+8) & bg.TYPE_LADDER && math.abs(x%16-8) <= 4 ){
+			// はしごに下り始める
+			state = STATE_LADDER;
+			vx = 0;
+			y += 8;
+		}elsif( pad.pushed & (pad.A|pad.UP) ){
+			// ジャンプした！
+			y -= 1;
+			vy = -36;
+			jump_pow = 10;
+			state = STATE_JUMP;
+			sound.play_se( &JUMP_SE[10] );
+		}
+		
+		if( state == STATE_STAND ){
+			// 地上にいる
+			if( (hit & en.DIR_MASK_DOWN) == 0){
+				// 床から落ちた
+				y += 2;
+				state = STATE_JUMP;
+			}
+		}elsif( state == STATE_ON_ENEMY ){
+			// 敵に乗ってる
+			if( check_on_enemy() != on_idx ){
+				y += 1;
+				state = STATE_JUMP;
+			}
+		}
+		
+	case STATE_DAMAGE: // 吹っ飛び中
+		my_anim += 1;
+		x += (vx+giff)/16;
+		vy += 2;
+		y += vy / 16;
+		hit = check_block();
+		if( vy < 0 ){
+			//上昇中
+			if( hit & DIR_MASK_UP ){
+				// 頭をぶつけた
+				vy = 0;
+				jump_pow = 0;
+			}
+		}else{
+			// 下降中
+			if( vy > 64 ){ vy = 64; }
+			if( hit & DIR_MASK_DOWN ){
+				// 着地
+				vy = 0;
+				state = STATE_STAND;
+			}
+		}
+		
+	case STATE_JUMP: // ジャンプ中
+		my_anim += 1;
+		
+		// 空中にいる
+		var vvx = 1;
+		if( jump_pow ){ vvx = 4; }
+		if( pad.cur & pad.RIGHT ){ vx += vvx; dir = 0; }
+		if( pad.cur & pad.LEFT ){ vx -= vvx; dir = 1; }
+		if( !(pad.cur & (pad.LEFT|pad.RIGHT)) ){ vx -= math.sign(vx); }
+		if( vx > 16 ){ vx = 16; }
+		if( vx < -16 ){ vx = -16; }
+		x += (vx+giff)/16;
+		
+		vy += 2;
+		y += vy / 16;
+		if( limited_water ){ vy -= 4; }
+
+		hit = check_block();
+
+		// 長押しで上昇維持する処理
+		if( jump_pow ){
+			jump_pow -= 1;
+			if( pad.cur & (pad.A|pad.UP) ){
+				vy -= 1;
+			}else{
+				vy += 22;
+				jump_pow = 0;
+			}
+		}
+		if( vy < 0 ){
+			//上昇中
+			if( limited_water && vy < -32 ){ vy = -32; } // 水の中の制限
+			if( hit & DIR_MASK_UP ){
+				// 頭をぶつけた
+				vy = 0;
+				jump_pow = 0;
+			}
+		}else{
+			// 下降中
+			if( vy > 64 ){ vy = 64; }
+			if( limited_water && vy > 32 ){ vy = 32; } // 水の中の制限
+			
+			if( hit & DIR_MASK_DOWN ){
+				// 着地
+				vy = 0;
+				state = STATE_STAND;
+			}else{
+				on_idx = check_on_enemy();
+				if( on_idx != -1 ){
+					// 敵に乗った!
+					state = STATE_ON_ENEMY;
+					vy = 0;
+					on_x = en.px[on_idx];
+					on_y = en.py[on_idx];
+				}
+			}
+		}
+		
+		if( items[ITEM_ID_CRAW] ){
+			if( (pad.cur & pad.UP) && get_cell_type(x,y) & bg.TYPE_LADDER && math.abs(x%16-8) <= 2 ){
+				// はしごに登り始める
+				vx = 0;
+				state = STATE_LADDER;
+			}
+		}
+		
+		if( in_water && (pad.cur & (pad.A|pad.UP)) ){
+			vy = -32;
+			jump_pow = 10;
+			if( vy <= -32 ){ vy = -32; }
+		}
+		
+	case STATE_LADDER: // はしご
+		vy = 0;
+		x = (x/16)*16+8;
+		if( pad.cur & pad.UP ){
+			// 登る
+			my_anim += 1;
+			if( get_cell_type(x,y-4) != bg.TYPE_WALL ){
+				if( get_cell_type(x,y) & bg.TYPE_LADDER ){
+					y -= 1;
+				}else{
+					y -= 8;
+					state = STATE_STAND;
+				}
+			}
+		}elsif( pad.cur & pad.DOWN ){
+			// 降りる
+			my_anim += 1;
+			if( !(get_cell_type(x,y+7) & bg.TYPE_LADDER) ){
+				y -= 1;
+				state = STATE_STAND;
+			}else{
+				y += 1;
+			}
+		}elsif( (pad.cur & (pad.LEFT|pad.RIGHT)) && !get_cell(x,y) ){
+			state = STATE_JUMP;
+		}
+		
+	case STATE_DYING:
+		wait += 1;
+		if( wait > 32*3 ){ state = STATE_DIE; }
+	case STATE_DIE:
+		state = STATE_DIE;
+	}
+
+	// 刺
+	var c = get_cell_type(x,y);
+	if( c & bg.TYPE_SPIKE && state != STATE_DYING && state != STATE_DIE ){
+		state = STATE_DYING;
+		wait = 0;
+	}
+
+}
+
+public function draw():void options(segment:"game")
+{
+	var a:int;
+	var dir_flag = 64*dir;
+	var in_water = (bg.cell(x,y) == 24);
+	switch( state ){
+	case STATE_STAND, STATE_ON_ENEMY:
+		const ANIM = [1,2,3,3,2,1,0,0];
+		a = ANIM[my_anim/4%8];
+		gr_sprite2( x, y, a*4, dir_flag );
+	case STATE_JUMP, STATE_DAMAGE:
+		a = anim/8%2*4;
+		if( in_water ) dir_flag = dir_flag|32;
+		if( vy < -8 ){
+			gr_sprite2( x, y, SPR_JUMP_UP, dir_flag );
+		}else if( vy < 8 ){
+			gr_sprite2( x, y, SPR_JUMP_UP+4, dir_flag );
+		}else{
+			gr_sprite2( x, y, SPR_JUMP_DOWN+a, dir_flag );
+		}
+	case STATE_LADDER:
+		a = (my_anim/4)%8;
+		dir_flag = [0,0,0,0,64,64,64,64][a];
+		a = [4,0,0,4,4,0,0,4][a];
+		gr_sprite2( x, y, SPR_LADDER+a, dir_flag );
+	case STATE_DYING:
+		if( anim % 2 ){
+			gr_sprite2( x, y, 8*4+wait/32*4, dir_flag);
+		}
+	}
+}
+
+public function get_map(x:int, y:int):int options(segment:"game")
+{
+	var idx = y*2 + x/8;
+	var n = map_flag[idx];
+	var cx = 7 - x % 8;
+	return n & (1 << cx);
+}
+
+public function set_map(x:int, y:int):void options(segment:"game")
+{
+	var idx = y*2 + x/8;
+	var n = map_flag[idx];
+	var cx = 7 - x % 8;
+	map_flag[idx] = n | (1 << cx);
+}
+

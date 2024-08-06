@@ -1,0 +1,55 @@
+//options( bank_count: 32, bank: -1, char_banks: 8 );
+
+include( "main.asm" );
+
+use * from common;
+use game;
+use en;
+use my;
+use sound;
+use title;
+use savedata;
+
+include('../res/images/bg_common.chr');
+include('../res/images/bg.chr');
+include('../res/images/sprite.chr');
+include('../res/images/text.chr');
+include('../res/images/item.chr');
+include('../res/text/misc_text.chr');
+include('../res/images/title.chr');
+
+var buf:int[4096] options(segment:"BSS_EX");
+
+function main():void
+{
+	ppu.lock();
+	mmc3.init();
+
+	nes.APU_INTERRUPT = 0x40; // disable APU IRQ
+	mmc3.MIRROR = 1; // horizontal
+	mmc3.RAM_PROTECT = 0b10000000;
+	
+	ppu.init();
+	bg.init();
+	en.init();
+	my.init();
+	savedata.init();
+	savedata.load();
+
+	// play music
+	fs.copy( buf, fs.SOUND_BASE+0 );
+	sound.init();
+	ppu.on_vsync = sound.main_nsd;
+	var offset = buf[0];
+	sound.play_bgm(&buf[offset]);
+
+	asm( "cli" );
+
+	if( !debug_on(DEBUG_FLAG_TITLE_SKIP) ){
+		var old_pbank = mmc3.set_pbank(1, PBANK_TITLE);
+		title.start();
+		mmc3.set_pbank(1, old_pbank);
+	}
+	
+	game.start();
+}

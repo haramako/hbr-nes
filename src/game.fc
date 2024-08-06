@@ -1,0 +1,201 @@
+options( bank:0 );
+
+use * from common;
+use menu;
+use en;
+use my;
+use debug_menu;
+use event;
+use mem;
+use savedata;
+
+// const PALLET:int[] = incbin("../res/images/character.chr.dat");
+
+function init_area_enemy():void
+{
+	anim = 0;
+	en.clear();
+	
+	var n = 0;
+	for( n, 0, bg.enemy_num ){
+		var idx = n*6;
+		var type = bg.enemy[idx];
+		var i = en.new();
+		if( type & 128 ){
+			en.type[i] = en.TYPE_PORTAL;
+			en.p4[i] = type & 127;
+		}else{
+			en.type[i] = type;
+		}
+		en.px[i] = bg.enemy[idx+1] * 16 + 8;
+		en.py[i] = bg.enemy[idx+2] * 16 + 8;
+		en.p1[i] = bg.enemy[idx+3];
+		en.p2[i] = bg.enemy[idx+4];
+		en.p3[i] = bg.enemy[idx+5];
+		en.setup(i);
+	}
+}
+
+
+function start(): void
+{
+	ppu.lock();
+	
+	mmc3.set_cbank( 0, CBANK_BG_COMMON );
+	mmc3.set_cbank( 1, CBANK_BG );
+	mmc3.set_cbank( 2, CBANK_SPRITE+0 );
+	mmc3.set_cbank( 3, CBANK_SPRITE+1 );
+	mmc3.set_cbank( 4, CBANK_SPRITE+2 );
+	mmc3.set_cbank( 5, CBANK_SPRITE+3 );
+	
+	ppu.ctrl1_bak = 0b10100000;
+	ppu.ctrl2_bak = 0b00011110;
+	ppu.scroll1 = 0;
+	ppu.scroll2 = 0;
+	
+	// パレットの初期化
+	mem.copy( bg.pallet, PAL_SET, 16 );
+	mem.copy( &bg.pallet[16], bg.SPRITE_PALETTE, 16 );
+	ppu.put_in_lock( 0x3f00, bg.pallet, 32 );
+	
+	move_checkpoint(my.last_checkpoint);
+	my.set_map( bg.cur_area%16, bg.cur_area/16 );
+	my.save_in_this_area = 1;
+
+	ppu.unlock();
+	
+	anim = 0;
+
+	while( 1 ){
+		anim += 1;
+		giff = GIFF_TABLE[anim%16];
+		
+		pad.update();
+		en.process();
+		var old_pbank = mmc3.set_pbank(1, PBANK_MY);
+		my.process();
+		my.draw();
+		mmc3.set_pbank(1, old_pbank);
+
+		mmc3.set_cbank(0,CBANK_BG_COMMON+(anim/8)%4*2);
+		// nes.PPU_CTRL2 = 0b00011111; // コメントアウトで処理時間をビジュアライズする
+		ppu.wait_vsync();
+
+		// 死亡
+		if( my.state == my.STATE_DIE ){
+			var i:int;
+			for( i, 0, 4 ){
+				var buf = ppu.alloc(32);
+				mem.copy( buf, bg.pallet, 32 );
+				bg.pal_down(buf, 32, i);
+				ppu.put( VRAM_PALETTE, buf, 32, 0 );
+				var j:int;
+				for( j, 0, 10 ){ ppu.wait_vsync_with_flag(2); }
+			}
+			if( debug_on(DEBUG_FLAG_AUTO_SAVE) ){
+				move_to_last();
+			}else{
+				savedata.load();
+				move_checkpoint(my.last_checkpoint);
+			}
+		}
+
+		// スクロール
+		var scroll_dir = -1;
+		if( my.x < 8 ){
+			scroll_dir = DIR_LEFT;
+		}elsif( my.x >= 248 ){
+			scroll_dir = DIR_RIGHT;
+		}elsif( my.y >= 232 ){
+			scroll_dir = DIR_DOWN;
+		}elsif( my.y < 8 ){
+			if( my.state == my.STATE_LADDER || my.prev_in_water){
+				scroll_dir = DIR_UP;
+			}else{
+				my.y = 8;
+			}
+		}
+		if( scroll_dir != -1 ){
+			my.save_in_this_area = 0;
+			bg.scroll( scroll_dir );
+			set_last();
+			init_area_enemy();
+			bg.update_palette();
+			my.set_map( bg.cur_area%16, bg.cur_area/16 );
+		}
+
+		// イベント
+		if( game_event ){
+			switch( game_event ){
+			case event.ID_GET_ITEM:
+				var old_pbank = mmc3.set_pbank(1, PBANK_EVENT);
+				event.event_start();
+				mmc3.set_pbank(1, old_pbank);
+			case event.ID_MOVE_AREA:
+				move_area(game_event_p1);
+			case event.ID_MOVE_CHECKPOINT:
+				move_checkpoint(game_event_p1);
+			}
+			game_event = 0;
+		}
+		
+		// メニュー
+		if( pad.pushed & pad.START && debug_mode ){
+			var old_bank = mmc3.set_pbank( 1, PBANK_DEBUG_MENU );
+			debug_menu.start();
+			mmc3.set_pbank( 1, old_bank );
+		}elsif( pad.pushed & pad.SELECT && my.state != my.STATE_DYING){
+			var old_bank = mmc3.set_pbank(1, PBANK_MENU);
+			menu.start();
+			mmc3.set_pbank( 1, old_bank );
+		}
+	}
+  
+}
+
+var last_area:int;
+var last_x:int;
+var last_y:int;
+
+function set_last():void
+{
+	last_area = bg.cur_area;
+	last_x = my.x;
+	last_y = my.y;
+}
+
+function move_to_last():void
+{
+	move_area(last_area);
+	my.state = my.STATE_STAND;
+	my.x = last_x;
+	my.y = last_y;
+	my.vx = 0;
+	my.vy = 0;
+}
+
+function move_area(area:int):void
+{
+	my.save_in_this_area = 0;
+	bg.fetch_area(area);
+	init_area_enemy();
+	bg.update_palette();
+	ppu.lock();
+	ppu.put_in_lock( VRAM_PALETTE, bg.pallet, 16 );
+	bg.draw_screen();
+	ppu.unlock();
+}
+
+function move_checkpoint(i:int):void
+{
+	var cp = &MAP_CHECKPOINT_DATA[MAP_CHECKPOINT[i]];
+	my.state = my.STATE_STAND;
+	my.x = cp[1]+8;
+	my.y = cp[2]+8;
+	my.vx = 0;
+	my.vy = 0;
+	var area = cp[0];
+	move_area( area );
+	set_last();
+}
+

@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<link href="http://netdna.bootstrapcdn.com/bootstrap/3.0.0/css/bootstrap.min.css" rel="stylesheet">
+
+<div class="container">
+	<div class="row">
+		<div class="span8">
+
+			<h2>初期設定</h2>
+
+			<h3>Windowsの場合</h3>
+			<ol>
+				<li>chocolateyをインストール</li>
+				<li>(管理者コンソールで) choco install -y ruby cc65-compiler git を実行</li>
+				<li>(管理者コンソールで) gem install bundle rake を実行</li>
+				<li>castleフォルダで bundle を実行</li>
+				<li>これで、build.bat, guard.bat が実行可能になる</li>
+			</ol>
+
+			<h3>Linuxの場合</h3>
+			<ol>
+				<li>sudo apt install ruby cc65 libgd3を実行</li>
+				<li>fc-sampleフォルダで bundle を実行</li>
+				<li>これで、bundle exec rake (もしくは、bundle2.7 exec rake)</li>
+			</ol>
+
+			<h2>デバッグモード</h2>
+
+			<p>タイトル画面で「上・上・下・下・左・右・左・右・スタート・セレクト」でデバッグモードON
+
+			<h2>チェックポイント</h2>
+
+			<ul>
+				<li>種類: "checkpoint" で固定
+				<li>名前: アルファベット大文字で表示名 (例："CHECKPOINT1")
+				<li>プロパティ: id => 0から連番でチェックポイントの数,
+			</ul>
+
+			<h2>敵</h2>
+
+			<ul>
+				<li>種類: "enemy" で固定
+				<li>名前: 下表のtypeのいずれかを指定する
+			</ul>
+
+			<h3>敵の種類ごとのプロパティ</h3>
+
+			<p>※ p1,p2は、省略すると0が使用される
+
+			<p>※ 方向は 0:上, 1:右, 2:下, 3:左
+
+			<p>※ 速度は単位が書かれていなければ 1/16[px/frame]
+
+			<table class="table table-bordered">
+				<tr class="table-header">
+					<th>AB
+					<th>名前
+					<th>type
+					<th>p1
+					<th>p2
+					<th>p3
+					<th>説明
+				</tr>
+				<tr>
+					<td>A-
+					<td>スライム
+					<td>SLIME
+					<td>方向( 1:右向き, -1:左向き ) ※こいつだけ特殊
+					<td>
+					<td>
+					<td>下矢印の場所で溶ける
+				</tr>
+				<tr>
+					<td>--
+					<td>ウィルオーウィスプ
+					<td>WOW
+					<td>方向
+					<td>速度
+					<td>
+					<td>方向指定ブロックで曲がる
+				</tr>
+				<tr>
+					<td>-B
+					<td>エレベーター
+					<td>ELEVATOR
+					<td>方向
+					<td>速度
+					<td>幅( 0: 2キャラ、 1: 1キャラ)
+					<td>
+				</tr>
+				<tr>
+					<td>-B
+					<td>カエル
+					<td>FROG
+					<td>方向(右左)
+					<td>ジャンプの高さ(デフォルト:32)
+					<td>
+					<td>
+				</tr>
+				<tr>
+					<td>--
+					<td>クッキー
+					<td>COOKIE
+					<td>初期角度( 0〜255, 右から時計回り )
+					<td>回転速度( 正で右回転、負で左回転。単位=1/256[円周/frame])
+					<td>回転の大きさ(3=標準で小さい値ほど大きな円を描く)
+					<td>回るウィルオーウィスプ
+				</tr>
+				<tr>
+					<td>-B
+					<td>ランプの火
+					<td>LAMP
+					<td>
+					<td>
+					<td>
+					<td>
+				</tr>
+				<tr>
+					<td>A-
+					<td>ガスさん
+					<td>GAS
+					<td>方向
+					<td>速度
+					<td>
+					<td>
+				</tr>
+				<tr>
+					<td>A-
+					<td>テレサみたいなゴースト
+					<td>GHOST
+					<td>追いかけ距離( デフォルト=60 )
+					<td>
+					<td>
+					<td>
+				</tr>
+				<tr>
+					<td>--
+					<td>スイッチ
+					<td>SWITCH
+					<td>フラグ番号(0..31のいずれか)
+					<td>
+					<td>
+					<td>
+				</tr>
+				<tr>
+					<td>--
+					<td>フラグ開閉ドア
+					<td>FLAGED_DOOR
+					<td>フラグ番号(0..31のいずれか)
+					<td>
+					<td>
+					<td>
+				</tr>
+				<tr>
+					<td>--
+					<td>無限湧きポイント
+					<td>PORTAL
+					<td>(沸かせるモンスターのp1)
+					<td>(沸かせるモンスターのp2)
+					<td>周期( 1[sec] )
+					<td>typeに "portal:slime", "portal:wow" など沸かせるモンスターの種類をいれる
+				</tr>
+				<tr>
+					<td>A-
+					<td>鳥
+					<td>BIRD
+					<td>方向(0:横（左倒しの８）, 1:逆横（右倒しの８）, 2:縦（逆８の字）, 3:逆縦（８の字）)
+					<td>スピード(16が標準)
+					<td>鳥よけフラグ(0:関係ない, 1:鳥よけで消える)
+					<td>
+				</tr>
+				<tr>
+					<td>A-
+					<td>石像
+					<td>STATUE
+					<td>方向
+					<td>玉を吐く周期[1/60sec]
+					<td>周期の初期タイミング[1/60sec]
+					<td>
+				</tr>
+				<tr>
+					<td>A-
+					<td>魚
+					<td>FISH
+					<td>方向
+					<td>速度（8=標準）
+					<td>
+					<td>
+				</tr>
+				<tr>
+					<td>A-
+					<td>水門のコントロールパネル
+					<td>WATERGATE
+					<td>
+					<td>
+					<td>
+					<td>フラグ31を水門の開閉フラグとして使用
+				</tr>
+				<tr>
+					<td>-B
+					<td>橋のスイッチ
+					<td>COLORSWITCH
+					<td>色(0:赤 , 1:緑, 2:青)
+					<td>
+					<td>
+					<td>フラグ30のカラー橋を切り替る
+				</tr>
+			</table>
+
+			<h2>アイテム</h2>
+
+			<ul>
+				<li>種類: "item" で固定
+				<li>名前: 下記のアイテムIDのいずれか
+			</ul>
+
+			<table class="table table-bordered">
+				<tr class="table-header">
+					<th>アイテムID(オブジェクトの名前に指定する)
+					<th>説明
+				</tr>
+				<tr>
+					<td>sandal
+					<td>サンダル
+				</tr>
+				<tr>
+					<td>lamp
+					<td>ランプ
+				</tr>
+				<tr>
+					<td>grobe
+					<td>グローブ
+				</tr>
+				<tr>
+					<td>boots
+					<td>ブーツ
+				</tr>
+				<tr>
+					<td>omamori
+					<td>お守り
+				</tr>
+				<tr>
+					<td>map
+					<td>地図
+				</tr>
+				<tr>
+					<td>gas_mask
+					<td>ガスマスク
+				</tr>
+				<tr>
+					<td>weight
+					<td>おもり
+				</tr>
+				<tr>
+					<td>craw
+					<td>かぎづめ
+				</tr>
+				<tr>
+					<td>key
+					<td>水門のカギ
+				</tr>
+				<tr>
+					<td>eye
+					<td>めだま
+				</tr>
+				<tr>
+					<td>orb1〜6
+					<td>宝珠(悲しみ、怒り、よろこび、後悔、嫉妬、忘却)
+				</tr>
+				<tr>
+					<td>
+					<td>
+				</tr>
+			</table>
+		</div>
+	</div>
+</div>

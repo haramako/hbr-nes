@@ -1,0 +1,287 @@
+options( bank: 1 );
+
+use * from common;
+use my;
+use event;
+use mem;
+
+public const TYPE_NONE = 0;
+public const TYPE_SLIME = 1;
+public const TYPE_WOW = 2;
+public const TYPE_ELEVATOR = 3;
+public const TYPE_BUBBLE = 4;
+public const TYPE_SPLASH = 5;
+public const TYPE_BLOCK = 6;
+public const TYPE_FROG = 7;
+public const TYPE_COOKIE = 8;
+public const TYPE_CHEST = 9;
+public const TYPE_LAMP = 10;
+public const TYPE_GAS = 11;
+public const TYPE_GHOST = 12;
+public const TYPE_SWITCH = 13;
+public const TYPE_FLAGED_DOOR = 14;
+public const TYPE_PORTAL = 15;
+public const TYPE_CHECKPOINT = 16;
+public const TYPE_BIRD = 17;
+public const TYPE_STATUE = 18;
+public const TYPE_STATUE_FIRE = 19;
+public const TYPE_FISH = 20;
+public const TYPE_WATERGATE = 21;
+public const TYPE_COLORSWITCH = 22;
+
+public const MAX = 16;
+public var type:int[MAX] options(segment:"BSS_EX");
+public var px:int[MAX] options(segment:"BSS_EX");
+public var py:int[MAX] options(segment:"BSS_EX");
+public var p1:int[MAX] options(segment:"BSS_EX");
+public var p2:int[MAX] options(segment:"BSS_EX");
+public var p3:int[MAX] options(segment:"BSS_EX");
+public var p4:int[MAX] options(segment:"BSS_EX");
+public var p5:int[MAX] options(segment:"BSS_EX");
+public var p6:int[MAX] options(segment:"BSS_EX");
+public var p7:int[MAX] options(segment:"BSS_EX");
+public var p8:int[MAX] options(segment:"BSS_EX");
+public var _padding_for_align:int[80] options(segment:"BSS_EX");
+public var wait:int;
+public var now:int;
+
+/*********************************************
+ * 敵関係のルーチン
+ *********************************************/
+
+/** 初期化する */
+public function init():void
+{
+}
+
+public function clear():void
+{
+	var i:int;
+	for( i, 0, MAX ){
+		type[i] = 0;
+	}
+}
+
+public function process():void
+{
+	var old_pbank = mmc3.pbank_bak[0];
+	var i:int;
+	for( i, 0, MAX ){
+		var t = type[i];
+		mmc3.set_pbank(0, EN_BANKS[t]);
+		PROCESS[t](i);
+	}
+	mmc3.set_pbank(0,old_pbank);
+}
+
+public function new():int options(segment:"CODE", fastcall:true)
+{
+	var i:int;
+	for( i, 0, MAX ){
+		if( !type[i] ){ return i; }
+	}
+	return 255;
+}
+
+public function setup(i:int):void
+{
+	var t = type[i];
+	var old_pbank = mmc3.set_pbank(0, EN_BANKS[t]);
+	NEW_FUNC[t](i);
+	mmc3.set_pbank(0, old_pbank);
+}
+
+private:
+
+public function check_block(px:int*, py:int*):int
+{
+	const size = 8;
+	var x = *px;
+	var y = *py;
+	var r = 0;
+
+	// 下方向
+	if( bg.cell_type(x+4,y+(size-1)) & bg.TYPE_WALL || bg.cell_type(x-4,y+(size-1)) & bg.TYPE_WALL ){
+		*py = (y+size)/16*16 - size;
+		r = DIR_MASK_DOWN;
+	}
+
+	// 右方向
+	if( bg.cell_type(x+(size-1),y) & bg.TYPE_WALL ){
+		*px = (x+size)/16*16 - size;
+		r = r | DIR_MASK_RIGHT;
+	}elsif( x >= 240 ){
+		*px = 239;
+		r = r | DIR_MASK_RIGHT;
+	}
+
+	// 左方向
+	if( bg.cell_type(x-size,y) & bg.TYPE_WALL ){
+		*px = (x-size)/16*16 + 16 + size;
+		r = r | DIR_MASK_LEFT;
+	}elsif( x < 16 ){
+		*px = 16;
+		r = r | DIR_MASK_LEFT;
+	}
+	
+	// 上方向
+	if( bg.cell_type(x+4,y-size) & bg.TYPE_WALL || bg.cell_type(x-4,y-size) & bg.TYPE_WALL ){
+		*py = (y-size)/16*16 + 16 + size;
+		r = r | DIR_MASK_UP;
+	}
+	
+	return r;
+}
+
+public function check_outside(x:int, y:int):int options(fastcall:true)
+{
+	return ( x < 16 || x >= 240 || y < 16 || y >= 240 );
+}
+
+public function check_hit(i:int, size:int):void
+{
+	if( math.abs(px[i] - my.x) < size && math.abs(py[i] - my.y) < size && my.state != my.STATE_DYING && my.state != my.STATE_DIE ){
+		my.state = my.STATE_DYING;
+		my.wait = 0;
+	}
+}
+
+/*********************************************
+ * ダミー
+ *********************************************/
+function none_new():int { return 255; }
+function none_process(i:int):void {}
+
+/*********************************************
+ * 関数テーブル
+ *********************************************/
+
+use * from en1;
+use * from en2;
+
+const EN_BANKS: int[] = [ PBANK_EN1,
+						  PBANK_EN1,
+						  PBANK_EN1,
+						  PBANK_EN1,
+						  PBANK_EN1,
+						  PBANK_EN1,
+						  PBANK_EN1,
+						  PBANK_EN1,
+						  PBANK_EN1,
+						  PBANK_EN1,
+						  PBANK_EN1,
+						  PBANK_EN1,
+						  PBANK_EN1,
+						  PBANK_EN1,
+						  PBANK_EN1,
+						  PBANK_EN1,
+						  PBANK_EN1,
+						  PBANK_EN2,
+						  PBANK_EN2,
+						  PBANK_EN2,
+						  PBANK_EN2,
+						  PBANK_EN2,
+						  PBANK_EN2
+						  ];
+
+const PROCESS: void(int)[] = [ none_process,
+							   slime_process,
+							   wow_process,
+							   elevator_process,
+							   bubble_process,
+							   splash_process,
+							   block_process,
+							   frog_process,
+							   cookie_process,
+							   chest_process,
+							   lamp_process,
+							   gas_process,
+							   ghost_process,
+							   switch_process,
+							   flaged_door_process,
+							   portal_process,
+							   checkpoint_process,
+							   bird_process,
+							   statue_process,
+							   statue_fire_process,
+							   fish_process,
+							   watergate_process,
+							   colorswitch_process
+							   ];
+
+const NEW_FUNC: void(int)[] = [ none_process,
+								slime_new,
+								wow_new,
+								elevator_new,
+								none_process,
+								none_process,
+								block_new,
+								frog_new,
+								cookie_new,
+								chest_new,
+								lamp_new,
+								gas_new,
+								ghost_new,
+								switch_new,
+								flaged_door_new,
+								portal_new,
+								checkpoint_new,
+								bird_new,
+								statue_new,
+								statue_fire_new,
+								fish_new,
+								watergate_new,
+								colorswitch_new
+								];
+
+const CBANK_OF_TYPE: int[] =
+	[ 0,
+	  0,
+	  0,
+	  0,
+	  0,
+	  0,
+	  0,
+	  0,
+	  0,
+	  0,
+	  1,
+	  0,
+	  0,
+	  0,
+	  0,
+	  0,
+	  0,
+	  0,
+	  0,
+	  0,
+	  1,
+	  0,
+	  2
+	  ];
+
+const PALSET_OF_TYPE: int[] =
+	[ 5,
+	  5,
+	  0,
+	  0,
+	  0,
+	  0,
+	  0,
+	  6,
+	  0,
+	  0,
+	  9,
+	  6,
+	  7,
+	  0,
+	  0,
+	  0,
+	  0,
+	  0,
+	  0,
+	  0,
+	  8,
+	  0,
+	  10
+	  ];
