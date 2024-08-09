@@ -1,0 +1,128 @@
+options( bank:0 );
+
+use * from common;
+use menu;
+use en;
+use my;
+use debug_menu;
+use event;
+use mem;
+use savedata;
+
+function start(): void
+{
+	ppu.lock();
+
+	ppu.ctrl1_bak = 0b10100000;
+	ppu.ctrl2_bak = 0b00011110;
+	ppu.scroll1 = 0;
+	ppu.scroll2 = 0;
+	
+	
+	mmc3.set_cbank( 0, CBANK_FACE );
+	mmc3.set_cbank( 1, CBANK_FACE+2 );
+	mmc3.set_cbank( 2, CBANK_SPRITE+0 );
+	mmc3.set_cbank( 3, CBANK_SPRITE+1 );
+	mmc3.set_cbank( 4, CBANK_SPRITE+2 );
+	mmc3.set_cbank( 5, CBANK_SPRITE+3 );
+	
+	ppu.ctrl1_bak = 0b10100000;
+	ppu.ctrl2_bak = 0b00011110;
+	ppu.scroll1 = 0;
+	ppu.scroll2 = 0;
+	
+	// パレットの初期化
+	mem.copy( bg.pallet, FACE_PAL_SET, 16 );
+	mem.copy( &bg.pallet[16], bg.SPRITE_PALETTE, 16 );
+	ppu.put_in_lock( 0x3f00, bg.pallet, 32 );
+
+	ppu.fill_in_lock(0x2000, 256*4, 0);
+	
+	draw_face(1,8,1,1);
+	draw_face(4,8,2,2);
+	draw_face(7,8,3,3);
+
+	draw_status(0);
+	draw_status(1);
+	draw_status(2);
+	draw_status(3);
+	draw_status(4);
+	draw_status(5);
+
+	draw_face(6,11,4,1);
+	draw_face(9,11,5,2);
+	draw_face(12,11,7,3);
+
+	ppu.unlock();
+	
+	anim = 0;
+
+	while( 1 ){
+		pad.update();
+		en.process();
+		var old_pbank = mmc3.set_pbank(1, PBANK_MY);
+		my.process();
+		my.draw();
+		mmc3.set_pbank(1, old_pbank);
+
+		//mmc3.set_cbank(0,CBANK_BG_COMMON+(anim/8)%4*2);
+		// nes.PPU_CTRL2 = 0b00011111; // コメントアウトで処理時間をビジュアライズする
+		ppu.wait_vsync();
+	}
+}
+
+function draw_face(x:int, y:int, face:int, pal:int):void{
+	var bx = (face % 4) * 2;
+	var by = (face / 4) * 2;
+	var base = bx + by * 8;
+	put_in_lock(x  ,y  , base + 0, pal);
+	put_in_lock(x+1,y  , base + 1, pal);
+	put_in_lock(x  ,y+1, base + 8, pal);
+	put_in_lock(x+1,y+1, base + 9, pal);
+}
+
+function put_in_lock(x:int, y:int, n:int, pal:int):void
+{
+	var y16:int16 = y;
+	var addr:int16 = 0x2000 + y16*64 + x*2;
+	var ni = n * 4;
+	bg.buf[0] = ni;
+	bg.buf[1] = ni+2;
+	bg.buf[2] = ni+1;
+	bg.buf[3] = ni+3;
+	ppu.put_in_lock( addr, bg.buf, 2 );
+	ppu.put_in_lock( addr+32, &bg.buf[2], 2 );
+
+	var pal_addr = bg.set_pal(x,y,pal);
+	ppu.put_in_lock( 0x23c0 + pal_addr, &bg.pal[pal_addr], 1 );
+}
+
+const num_to_bg = [4,5,6,7, 32,33,34,35,36,37];
+
+function put_num(x:int, y:int, n:int8): void {
+	var i = 0;
+	mem.zero(&bg.buf[0],4);
+	while(n>0){
+		bg.buf[3-i] = num_to_bg[n % 10];
+		n = n / 10;
+		i+=1;
+	}
+	if( i > 0 ){
+		ppu.put_in_lock(ppu.pos(x-i+1,y), &bg.buf[4-i], i);
+	}else{
+		ppu.fill_in_lock(ppu.pos(x,y), 1, num_to_bg[0]);
+	}
+}
+
+const status_x = [0,6,12, 10,16,22];
+const status_y = [16,16,16, 22,22,22];
+
+function draw_status(n:int):void{
+	var bx = status_x[n];
+	var by = status_y[n];
+	
+	ppu.fill_in_lock(ppu.pos(bx+1,by+4),1,2);
+	put_num(bx+5,by+4,154);
+	ppu.fill_in_lock(ppu.pos(bx+3,by+5),1,1);
+	put_num(bx+5,by+5,15);
+}

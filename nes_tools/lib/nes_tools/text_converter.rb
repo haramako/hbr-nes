@@ -7,7 +7,7 @@ module NesTools
 
     PRESET_CHAR = ("¶　↓゛゜０１２３４５６７８９！？ー。、"+
                    "あいうえおかきくけこさしすせそたちつてとなにぬねのはひふへほまみむめも"+
-                   "やゆよらゃゅょりるれろわをんっ").each_char.to_a
+                   "やゆよらゃゅょりるれろわをんっABCDEFGHIJKLMNOPQRSTRVWXYZ").each_char.to_a
 
     CONVERT_CHAR = {
       ' ' => '　',
@@ -106,7 +106,11 @@ module NesTools
           c = '　' if i == 0 # 文字コード０は常に空白
           cj = c.encode('ISO-2022-JP')
           begin
-            cp = cj.codepoints.to_a[3..4].map{|x| x-32 }
+            if cj.codepoints.size > 3
+              cp = cj.codepoints.to_a[3..4].map{|x| x-32 }
+            else
+              cp = cj.codepoints[0]
+            end
           rescue
             p c
             raise

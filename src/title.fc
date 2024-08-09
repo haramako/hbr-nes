@@ -45,31 +45,22 @@ const TITLE_TILEPAL:int[] = incbin("../res/images/title.tilepal");
 public function do_title():int
 {
 	ppu.lock();
-	ppu.irq_setup = irq_setup;
+	//ppu.irq_setup = irq_setup;
 	
 	ppu.put_in_lock( 0x3f00, &TITLE_PALETTE[0], 16 );
 	ppu.put_in_lock( 0x3f10, &TITLE_PALETTE[0], 16 );
 	
-	mmc3.set_cbank( 0, CBANK_TITLE+0 );
-	mmc3.set_cbank( 1, CBANK_TITLE+2 );
+	mmc3.set_cbank( 0, CBANK_TEXT+0 );
+	mmc3.set_cbank( 1, CBANK_TEXT+2 );
+	mmc3.set_cbank( 2, CBANK_SPRITE+0 );
 	mmc3.set_cbank( 3, CBANK_SPRITE+1 );
 
 	ppu.fill_in_lock(0x2000, 256*4, 0);
 
-	nes.PPU_ADDR = 0x20;
-	nes.PPU_ADDR = 0x00;
-	var i:uint8;
-	for(i,0,2){
-		var j: int8 = 0;
-		while(1){
-			nes.PPU_DATA = j;
-			j+=1;
-			if( j == 0 ) break;
-		}
-	}
 	ppu.put_in_lock(0x23C0, &TITLE_TILEPAL[0], 64);
 	
-	// put_text_in_lock( ppu.pos(13, 8),  _T("CASTLE"));
+	put_text_in_lock( ppu.pos(8,8), _T("HEAVEN BURNS RED"));
+	
 	put_text_in_lock( ppu.pos(10,26), VERSION_STR() );
 	if( debug_mode ) put_text_in_lock( ppu.pos(12,24), _T("［でばっぐもーど］") );
 	if( savedata.exists ){

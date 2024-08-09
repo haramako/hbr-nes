@@ -138,13 +138,15 @@ class TiledConverter
     make_sprite_image
     make_item_image
     make_title_image
+
+    make_face_image
     
     conv_sound
     
     conv_misc_text
 
     IO.binwrite "res/fs_data.bin", @fs.bin
-    IO.write 'src/resource.fc', ERB.new(DATA.read,nil,'-').result(binding)
+    IO.write 'src/resource.fc', ERB.new(DATA.read,nil,trim_mode: '-').result(binding)
     IO.write 'src/fs_config.fc', @fs.config
 
   end
@@ -457,6 +459,40 @@ class TiledConverter
     end
   end
   
+  # faceイメージの作成
+  def make_face_image
+    if @gd2_loaded
+      require 'gd2-ffij'
+      img = GD2::Image.import( 'res/images/face.png' )
+
+      tset = NesTools::TileSet.new
+      tset.add_from_img( img )
+      tset.reflow!
+
+      # パレットセットを作成
+      face_pal_set = NesTools::Palette.nespal(img)[0...128]
+      
+      face_pals = []
+      tset.tiles.each_slice(128).each do |tiles|
+        face_pals << tiles.each_slice(4).map{|t| t[0].palette % 4}
+      end
+
+      JSON.dump( {pal_set: face_pal_set, tile_pals: face_pals}, open('res/images/tmp_face_pal.json','w') ) # 一時的に保存
+
+      IO.binwrite("res/images/face.chr", tset.bin)
+    else
+      json = JSON.parse( IO.read('res/images/tmp_face_pal.json') ) 
+      face_pal_set = json['pal_set']
+      face_pals = json['tile_pals']
+    end
+
+    @face_pal_set = face_pal_set
+    @fs.tag :FACE_PAL_BASE
+    face_pals.each do |pals|
+      @fs.add pals
+    end
+
+  end
 end
 
 if ARGV.empty?
@@ -480,3 +516,4 @@ const MAP_CHECKPOINT_DATA = <%=@cp_buf.buf%>;
 const ITEM_ID_<%=item%> = <%= i %>;
 <%- end -%>
 const PAL_SET = <%=@pal_set%>;
+const FACE_PAL_SET = <%=@face_pal_set%>;

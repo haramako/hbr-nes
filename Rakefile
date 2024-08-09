@@ -1,4 +1,4 @@
-# require 'backports'
+# coding: utf-8
 
 ENV['PATH'] += File::PATH_SEPARATOR+'./nes_tools/bin'
 MAP_JSON = ENV['map'] || 'map.json'
