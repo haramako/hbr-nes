@@ -7,7 +7,8 @@ module NesTools
 
     PRESET_CHAR = ("¶　↓゛゜０１２３４５６７８９！？ー。、"+
                    "あいうえおかきくけこさしすせそたちつてとなにぬねのはひふへほまみむめも"+
-                   "やゆよらゃゅょりるれろわをんっABCDEFGHIJKLMNOPQRSTRVWXYZ").each_char.to_a
+                   "やゆよらゃゅょりるれろわをんっ"+
+                   "ＡＢＣＤＥＦＧＨＩＪＫＬＭＮＯＰＱＲＳＴＵＶＷＸＹＺ").each_char.to_a
 
     CONVERT_CHAR = {
       ' ' => '　',

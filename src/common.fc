@@ -22,15 +22,11 @@ const SPR_SPLASH = 21*4;
 const SPR_CURSOR = 22*4;
 const SPR_MAP_FLAG = 28*4;
 
-//const CBANK_BG_COMMON = 0;
-//const CBANK_BG = 8;
 const CBANK_SPRITE = 0;
-//const CBANK_ENEMY = 24;
-const CBANK_TEXT = 2;
-//const CBANK_ITEM = 34;
-//const CBANK_MISC_TEXT = 38;
+const CBANK_TEXT = 8;
 const CBANK_TITLE = 8;
 const CBANK_FACE = 12;
+const CBANK_ENEMY01 = 20;
 
 const PBANK_MENU = 2;
 const PBANK_EVENT = 2;

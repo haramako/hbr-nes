@@ -118,6 +118,7 @@ class TiledConverter
     h = data['height'].to_i
     raise if w % AREA_WIDTH != 0 or h % AREA_HEIGHT != 0
     @fs = NesTools::Fs.new
+    @vars = []
     @world_width = w / AREA_WIDTH
     @world_height = h / AREA_HEIGHT
 
@@ -133,6 +134,7 @@ class TiledConverter
     make_font
     make_sprite_image
     make_title_image
+    make_enemy_image
 
     make_face_image
     
@@ -167,6 +169,14 @@ class TiledConverter
     IO.binwrite 'res/images/sprite.nespal', nes_pal.pack('c*')
   end
 
+  def get_tile_pal(tset, width, x, y)
+    p0 = tset.tiles[y*width+x]&.palette || 0
+    p1 = tset.tiles[y*width+x+1]&.palette || 0
+    p2 = tset.tiles[(y+1)*width+x]&.palette || 0
+    p3 = tset.tiles[(y+1)*width+x+1]&.palette || 0
+    [p0,p1,p2,p3].max
+  end
+
   def make_title_image
     return unless @gd2_loaded
     img = GD2::Image.import( 'res/images/title.png' )
@@ -189,6 +199,32 @@ class TiledConverter
     IO.binwrite 'res/images/title.nespal', nes_pal.pack('c*')
     IO.binwrite 'res/images/title.tilepal', tile_pal.pack('c*')
     @fs.add tile_pal, 'TITLE_PALLET'
+  end
+
+  def make_enemy_image
+    return unless @gd2_loaded
+    img = GD2::Image.import( 'res/images/enemy01.png' )
+    tset = NesTools::TileSet.new
+    tset.add_from_img( img )
+    IO.binwrite 'res/images/enemy01.chr', tset.bin
+    
+    nes_pal = NesTools::Palette.nespal(img)[0...8]
+
+    tile_pal = []
+    2.times do |y|
+      3.times do |x|
+        tile_pal << ( (get_tile_pal(tset, 12, x*2  , y*2  ) << 0) | 
+                      (get_tile_pal(tset, 12, x*2+2, y*2  ) << 2) |
+                      (get_tile_pal(tset, 12, x*2  , y*2+2) << 4) |
+                      (get_tile_pal(tset, 12, x*2+2, y*2+2) << 6) )
+      end
+    end
+    
+    IO.binwrite 'res/images/enemy01.nespal', nes_pal.pack('c*')
+    IO.binwrite 'res/images/enemy01.tilepal', tile_pal.pack('c*')
+    @fs.add tile_pal, 'ENEMY01_PALLET'
+    @vars.push ['ENEMY01_PAL', nes_pal]
+    @vars.push ['ENEMY01_ATTR', tile_pal]
   end
   
   def conv_text
@@ -282,3 +318,7 @@ TiledConverter.new( ARGV[0] )
 
 __END__
 const FACE_PAL_SET = <%=@face_pal_set%>;
+
+<%- @vars.each do |v| -%>
+const <%=v[0]%> = <%=v[1]%>;
+<%- end -%>

@@ -6,6 +6,10 @@ use bg;
 use mem;
 use savedata;
 
+include("battle.asm");
+
+function irq_setup():void;
+
 function start(): void
 {
 	ppu.lock();
@@ -15,6 +19,7 @@ function start(): void
 	ppu.scroll1 = 0;
 	ppu.scroll2 = 0;
 	
+	ppu.irq_setup = irq_setup;
 	
 	mmc3.set_cbank( 0, CBANK_FACE );
 	mmc3.set_cbank( 1, CBANK_FACE+2 );
@@ -49,6 +54,9 @@ function start(): void
 	draw_face(6,11,4,1);
 	draw_face(9,11,5,2);
 	draw_face(12,11,7,3);
+
+	draw_enemy();
+	draw_enemy_status();
 
 	ppu.unlock();
 	
@@ -119,4 +127,42 @@ function draw_status(n:int):void{
 	put_num(bx+5,by+4,154);
 	ppu.fill_in_lock(ppu.pos(bx+3,by+5),1,1);
 	put_num(bx+5,by+5,15);
+}
+
+function draw_enemy():void{
+	var i:int;
+	var l:int;
+
+	for(l,0,8){
+		for(i,0,12){
+			bg.buf[i] = l*12+i+128;
+		}
+		ppu.put_in_lock(ppu.pos(18,4+l), &bg.buf[0], 12);
+	}
+}
+
+function draw_enemy_status():void {
+	var bx = 16;
+	var by = 12;
+	
+	ppu.put_in_lock(ppu.pos(bx+2, by+0), _T("DP   5500000"), 12);
+	ppu.put_in_lock(ppu.pos(bx+2, by+1), _T("破壊率　９９９／９９９％"), 12);
+}
+
+function text_print(p:int*, str:int*):int
+{
+	var i = 0;
+	var pi = 0;
+	while(1){
+		var c = str[i];
+		if( c == 0 ){ break; }
+		if( c == 3 || c == 4){
+			p[pi] = c;
+		}else{
+			p[pi+32] = c;
+			pi += 1;
+		}
+		i += 1;
+	}
+	return 0;
 }
