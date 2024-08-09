@@ -1,11 +1,8 @@
 options( bank:0 );
 
 use * from common;
-use menu;
-use en;
-use my;
 use debug_menu;
-use event;
+use bg;
 use mem;
 use savedata;
 
@@ -59,10 +56,7 @@ function start(): void
 
 	while( 1 ){
 		pad.update();
-		en.process();
 		var old_pbank = mmc3.set_pbank(1, PBANK_MY);
-		my.process();
-		my.draw();
 		mmc3.set_pbank(1, old_pbank);
 
 		//mmc3.set_cbank(0,CBANK_BG_COMMON+(anim/8)%4*2);

@@ -2,11 +2,7 @@ options( bank: -1 );
 
 use * from common;
 use mem;
-use my;
-use game;
-use event;
 use savedata;
-use menu;
 
 var last_checkpoint:int;
 
@@ -47,13 +43,13 @@ function select():int
 	var buf = ppu.alloc(64);
 	
 	mem.zero(buf, 64);
-	menu.text_print(buf, title);
+	//menu.text_print(buf, title);
 	ppu.put_in_lock(0x400 + ppu.pos(2, 2), buf, 64);
 	
 	var i:int;
 	for(i, 0, num){
 		mem.zero(buf, 64);
-		menu.text_print(buf, items[i]);
+		//menu.text_print(buf, items[i]);
 		ppu.put_in_lock(0x400 + ppu.pos(4, i * 2 + 5), buf, 64);
 	}
 	ppu.unlock();
@@ -96,7 +92,7 @@ function start():void
 		case 2:
 			do_debug_flag_change(DEBUG_FLAG_AUTO_SAVE, _T("おーとせーぶ") );
 		case 3:
-			mem.zero(my.flags, my.FLAG_MAX);
+			//mem.zero(my.flags, my.FLAG_MAX);
 			savedata.save();
 			break;
 		case 4:
@@ -133,8 +129,8 @@ function do_flag():int
 	var n = select();
 	if( n == -1 ){ return 0; }
 
-	game.game_event = event.ID_MOVE_CHECKPOINT;
-	game.game_event_p1 = n;
+	//game.game_event = event.ID_MOVE_CHECKPOINT;
+	//game.game_event_p1 = n;
 
 	return 1;
 }

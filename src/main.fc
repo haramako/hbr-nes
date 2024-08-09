@@ -3,9 +3,6 @@
 include( "main.asm" );
 
 use * from common;
-use game;
-use en;
-use my;
 use sound;
 use title;
 use savedata;
@@ -31,9 +28,6 @@ function main():void
 	mmc3.RAM_PROTECT = 0b10000000;
 	
 	ppu.init();
-	bg.init();
-	en.init();
-	my.init();
 	savedata.init();
 	savedata.load();
 
@@ -55,6 +49,4 @@ function main():void
 	*/
 
 	battle.start();
-	
-	game.start();
 }

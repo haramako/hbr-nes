@@ -1,8 +1,8 @@
 options( bank: -1 );
 
 use * from common;
+use bg;
 use mem;
-use my;
 use savedata;
 
 include("title.asm");
