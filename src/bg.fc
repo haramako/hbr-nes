@@ -101,8 +101,8 @@ public function init():void
 	buf_idx = 0;
 	in_dark = 0;
 	ppu.on_wait_vsync = ->void(){ buf_idx = 0; };
-	fs.copy( tile_pal, fs.TILE_PAL_BASE+0 );
-	fs.copy( &tile_pal[32], fs.TILE_PAL_BASE+1 );
+	//fs.copy( tile_pal, fs.TILE_PAL_BASE+0 );
+	//fs.copy( &tile_pal[32], fs.TILE_PAL_BASE+1 );
 	mem.copy( tile_type, TILE_TYPE, 64 );
 }
 

@@ -47,8 +47,8 @@ public function do_title():int
 	ppu.lock();
 	//ppu.irq_setup = irq_setup;
 	
-	ppu.put_in_lock( 0x3f00, &TITLE_PALETTE[0], 16 );
-	ppu.put_in_lock( 0x3f10, &TITLE_PALETTE[0], 16 );
+	//ppu.put_in_lock( 0x3f00, &TITLE_PALETTE[0], 16 );
+	//ppu.put_in_lock( 0x3f10, &TITLE_PALETTE[0], 16 );
 	
 	mmc3.set_cbank( 0, CBANK_TEXT+0 );
 	mmc3.set_cbank( 1, CBANK_TEXT+2 );
@@ -167,9 +167,9 @@ function text_print2(p:int*, str:int*, size:int):int
 function do_text_viewer():int
 {
 	ppu.lock();
-	mmc3.set_cbank( 0, CBANK_MISC_TEXT );
-	mmc3.set_cbank( 1, CBANK_MISC_TEXT+2 );
-	ppu.put_in_lock( 0x3f00, PAL_SET, 16 );
+	mmc3.set_cbank( 0, CBANK_TEXT );
+	mmc3.set_cbank( 1, CBANK_TEXT+2 );
+	//ppu.put_in_lock( 0x3f00, PAL_SET, 16 );
 
 	//fs.copy( bg.data_buf, fs.TEXT_MISAKI_FONT_LICENSE );
 	//fs.copy( bg.data_buf, fs.TEXT_NSD_LICENSE );
@@ -207,9 +207,9 @@ function do_credit():int
 	ppu.wait_vsync_with_flag(2);
 	
 	ppu.lock();
-	mmc3.set_cbank( 0, CBANK_MISC_TEXT );
-	mmc3.set_cbank( 1, CBANK_MISC_TEXT+2 );
-	ppu.put_in_lock( 0x3f00, PAL_SET, 16 );
+	mmc3.set_cbank( 0, CBANK_TEXT );
+	mmc3.set_cbank( 1, CBANK_TEXT+2 );
+	//ppu.put_in_lock( 0x3f00, PAL_SET, 16 );
 	ppu.fill_in_lock(0x2000, 256*4, 0);
 	
 	fs.copy( bg.data_buf, fs.TEXT_CREDIT );
@@ -268,7 +268,7 @@ function do_clear_savedata():int
 {
 	ppu.lock();
 	ppu.fill_in_lock(0x2000, 256*4, 0);
-	ppu.put_in_lock( 0x3f00, PAL_SET, 16 );
+	//ppu.put_in_lock( 0x3f00, PAL_SET, 16 );
 	put_text_in_lock( ppu.pos(4,10), _T("データを初期化しますが、ほんとうによろしいですか？") );
 	put_text_in_lock( ppu.pos(4,12), _T("スタートとセレクトを同時に押すとデータを消去します。") );
 	put_text_in_lock( ppu.pos(4,14), _T("また、Ｂボタンでタイトルにもどります。") );

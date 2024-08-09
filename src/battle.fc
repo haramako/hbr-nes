@@ -56,7 +56,7 @@ function start(): void
 
 	while( 1 ){
 		pad.update();
-		var old_pbank = mmc3.set_pbank(1, PBANK_MY);
+		var old_pbank = mmc3.set_pbank(1, PBANK_TITLE);
 		mmc3.set_pbank(1, old_pbank);
 
 		//mmc3.set_cbank(0,CBANK_BG_COMMON+(anim/8)%4*2);

@@ -129,14 +129,9 @@ class TiledConverter
     @text_conv.conv("VERSION.") # 文字を追加
 
     conv_text
-    conv_tile( data )
-    conv_item( data )
-    conv_item_data
     
     make_font
-    make_bg_image
     make_sprite_image
-    make_item_image
     make_title_image
 
     make_face_image
@@ -146,7 +141,7 @@ class TiledConverter
     conv_misc_text
 
     IO.binwrite "res/fs_data.bin", @fs.bin
-    IO.write 'src/resource.fc', ERB.new(DATA.read,nil,trim_mode: '-').result(binding)
+    IO.write 'src/resource.fc', ERB.new(DATA.read,trim_mode: '-').result(binding)
     IO.write 'src/fs_config.fc', @fs.config
 
   end
@@ -170,19 +165,6 @@ class TiledConverter
     IO.binwrite 'res/images/sprite.chr', tset.bin
     nes_pal = NesTools::Palette.nespal(img)[0...128]
     IO.binwrite 'res/images/sprite.nespal', nes_pal.pack('c*')
-  end
-
-  def make_item_image
-    return unless @gd2_loaded
-    img = GD2::Image.import( 'res/images/item.png' )
-    tset = NesTools::TileSet.new
-    tset.add_from_img( img )
-    tset.reflow!
-    nes_pal = NesTools::Palette.nespal(img)[0...16]
-    tile_pal = tset.tiles.each_slice(4).map{|t| t[0].palette}[0...32]
-    IO.binwrite 'res/images/item.chr', tset.bin
-    IO.binwrite 'res/images/item.nespal', nes_pal.pack('c*')
-    IO.binwrite 'res/images/item.tilepal', tile_pal.pack('c*')
   end
 
   def make_title_image
@@ -209,211 +191,6 @@ class TiledConverter
     @fs.add tile_pal, 'TITLE_PALLET'
   end
   
-  # BGイメージの作成
-  def make_bg_image
-    if @gd2_loaded
-      require 'gd2-ffij'
-      img = GD2::Image.import( 'res/images/character.png' )
-
-      tset = NesTools::TileSet.new
-      tset.add_from_img( img )
-      tset.reflow!
-
-      # パレットセットを作成
-      pal_set = NesTools::Palette.nespal(img)[0...128]
-      
-      tile_pals = []
-      tset.tiles.each_slice(128).each do |tiles|
-        tile_pals << tiles.each_slice(4).map{|t| t[0].palette % 4}
-      end
-
-      JSON.dump( {pal_set:pal_set, tile_pals: tile_pals}, open('res/images/tmp_pal.json','w') ) # 一時的に保存
-
-      common_tiles = tset.tiles.slice!(0,128) # 共通パーツ相当の128タイルを削除する
-      # 一部のタイルを置き換える
-      [
-       [95,63,1], # 空
-       [175,174,1], # 空の黒いバツブロック
-      ].each do |to,from,num|
-        to -= 32
-        from -= 32
-        num.times do |n|
-          4.times do |i|
-            tset.tiles[(to+n)*4+i] = tset.tiles[(from+n)*4+i]
-          end
-        end
-      end
-      IO.binwrite("res/images/bg.chr", tset.bin)
-
-      # 共通パーツの作成
-      common = NesTools::TileSet.new
-      4.times{ common.tiles.concat common_tiles }
-      anim = NesTools::TileSet.new
-      anim.add_from_img( GD2::Image.import('res/images/anim.png') )
-      anim.reflow!
-      [
-       [0, 4], # 矢印
-       [0, 5],
-       [0, 6],
-       [0, 7],
-       [0,31], # 見えない壁
-       [0,30], # バッテン
-       [1,24], # 水面
-       [0,25], # 水中
-       [2,26], # 水(左落ち)
-       [3,27], # 水(右落ち)
-       [4,28], # 水(垂直)
-       [6,16], # 歯車
-      ].each do |src,dest|
-        src *= 4*4
-        dest *= 4
-        4.times do |i| 
-          common.tiles[dest+i*128...dest+i*128+4] = anim.tiles[src+i*4...src+i*4+4]
-        end
-      end
-      IO.binwrite("res/images/bg_common.chr", common.bin)
-
-    else
-      json = JSON.parse( IO.read('res/images/tmp_pal.json') ) 
-      pal_set = json['pal_set']
-      tile_pals = json['tile_pals']
-    end
-
-    @pal_set = pal_set
-    @fs.tag :TILE_PAL_BASE
-    tile_pals.each do |pals|
-      @fs.add pals
-    end
-
-  end
-
-  # タイルデータの収集
-  def conv_tile( data )
-    a = Array.new(@world_width*@world_height*AREA_WIDTH*AREA_HEIGHT)
-
-    # レイヤーを重ねる
-    layers = data['layers'].select{|x| x['type'] == 'tilelayer'}.reverse
-    a.size.times do |i|
-      l = layers.find{|layer| layer['data'][i] != 0 }
-      raise "Invalid map data" unless l
-      a[i] = l['data'][i] - 1
-    end
-
-    @fs.tag :TILE_BASE
-    @area_types = []
-    @world_height.times do |ay|
-      @world_width .times do |ax|
-        area_type = 0
-        d = []
-        15.times do |cy|
-          16.times do |cx|
-            cell = a[(ay*15+cy)*AREA_WIDTH*@world_width + (ax*16+cx)]
-            if cell > 32
-              area_type = cell / 32 if area_type == 0 and cell % 32 != 31 # 31=空は特別
-              cell = cell % 32 + 32
-            end
-            d[cy*16+cx] = cell
-          end
-        end
-        @fs.add NesTools::Compress::Lzw.compress( d )
-        #if ay == 0 and ax == 13
-          packed = NesTools::Compress::Lzw.compress( d )
-          #IO.binwrite('uc.bin', d.pack('c*'))
-          #IO.binwrite('c.bin', packed.pack('c*'))
-          raise if NesTools::Compress::Lzw.decompress(packed) != d
-        #end
-        @area_types << area_type
-      end
-    end
-  end
-
-  # ピクセル数を[エリア番号, エリア内のセルX, エリア内のセルY]に変換する
-  def px2area( x, y )
-    x = x.to_i/16
-    y = (y.to_i/16)-1
-    area = (y/AREA_HEIGHT)*@world_width + x/AREA_WIDTH
-    [area, x%AREA_WIDTH, y%AREA_HEIGHT]
-  end
-
-  # アイテムデータの収集
-  def conv_item( data )
-    objs = data['layers'].find{|x| x['name'] == 'objects'}
-    checkpoints = []
-    enemy = Array.new(@world_width*@world_height){[]}
-    objs['objects'].each do |obj|
-      if obj['properties']
-        prop = Hash[obj['properties'].map{|e| [e['name'], e['value']] }]
-      else
-        prop = {}
-      end
-      case obj['type']
-      when 'checkpoint'
-        area, x, y = px2area( obj['x'], obj['y'] )
-        checkpoints[prop['id'].to_i] = {name:obj['name'], area:area, x:x*16, y:y*16}
-        enemy[area] << {type:'checkpoint', x:x, y:y, p1:prop['id'].to_i, p2:0, p3:0 }
-      when 'enemy'
-        area, x, y = px2area( obj['x'], obj['y'] )
-        type = obj['name'].empty? ? prop['type'] : obj['name']
-        enemy[area] << {type:type, x:x, y:y, p1:prop['p1'].to_i, p2:prop['p2'].to_i, p3:prop['p3'].to_i }
-      when 'item'
-        area, x, y = px2area( obj['x'], obj['y'] )
-        id = ITEM_DATA.find_index{|i| i[0] == obj['name'].downcase}
-        raise unless id
-        enemy[area] << {type:'chest', x:x, y:y, p1:id, p2:0, p3:0 }
-      end
-    end
-
-    @cp_buf = BankedBuffer.new
-    checkpoints.each.with_index do |cp,i|
-      name = @text_conv.conv( cp[:name] )
-      @cp_buf.add [ cp[:area], cp[:x], cp[:y], name, 0].flatten
-    end
-
-    @fs.tag :ENEMY_BASE
-    enemy.each.with_index do |area,i|
-      area_slot = [0,0]
-      area = area.map do |en| 
-        if /^portal:(.+)/ === en[:type].downcase
-          # ポータルの場合
-          type_data =  ENEMY_TYPE[$1.downcase.to_sym]
-          type = (128 | type_data[:id])
-        else
-          # それ以外
-          type_data = ENEMY_TYPE[en[:type].downcase.to_sym]
-          type = type_data[:id]
-        end
-        type_data[:slot].each.with_index do |slot,j|
-          next if slot == 0
-          if area_slot[j] != 0 and area_slot[j] != type_data[:id]
-            raise "slot conflict in area (#{i%@world_width},#{i/@world_width}) with #{en[:type]}"
-          end
-          area_slot[j] = type_data[:id]
-        end
-        [type, en[:x], en[:y], en[:p1] % 256, en[:p2] % 256, en[:p3] % 256]
-      end
-      @fs.add [area_slot, area.size, area]
-    end
-  end
-
-  def conv_item_data
-
-    @item_ids = []
-    ITEM_DATA.each do |item|
-      @item_ids << item[0].upcase
-    end
-
-    @fs.tag :ITEM_NAME_BASE
-    ITEM_DATA.each do |item|
-      @fs.add @text_conv.conv(item[1])
-    end
-
-    @fs.tag :ITEM_DESC_BASE
-    ITEM_DATA.each do |item|
-      @fs.add @text_conv.conv(item[2])
-    end
-
-  end
-
   def conv_text
     Dir.glob('src/*.fc') do |f|
       d = []
@@ -504,16 +281,4 @@ end
 TiledConverter.new( ARGV[0] )
 
 __END__
-const MAP_WIDTH = <%=@world_width%>;
-const MAP_HEIGHT = <%=@world_height%>;
-const AREA_TYPES = <%=@area_types%>;
-
-const MAP_CHECKPOINT_NUM = <%=@cp_buf.cur%>;
-const MAP_CHECKPOINT = <%=@cp_buf.addrs%>;
-const MAP_CHECKPOINT_DATA = <%=@cp_buf.buf%>;
-
-<%- @item_ids.each.with_index do |item,i| -%>
-const ITEM_ID_<%=item%> = <%= i %>;
-<%- end -%>
-const PAL_SET = <%=@pal_set%>;
 const FACE_PAL_SET = <%=@face_pal_set%>;

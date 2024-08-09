@@ -14,9 +14,6 @@ public function debug_on(mask:int):int options(fastcall:true)
 	return debug_mode && debug_flag & mask;
 }
 
-const ITEM_PAL = incbin("../res/images/item.nespal");
-const ITEM_TILEPAL = incbin("../res/images/item.tilepal");
-
 const SAVE_DATA_VERSION = 11;
 
 const SPR_ARROW = 20*4;
@@ -25,22 +22,19 @@ const SPR_SPLASH = 21*4;
 const SPR_CURSOR = 22*4;
 const SPR_MAP_FLAG = 28*4;
 
-const CBANK_BG_COMMON = 0;
-const CBANK_BG = 8;
-const CBANK_SPRITE = 22;
-const CBANK_ENEMY = 24;
-const CBANK_TEXT = 30;
-const CBANK_ITEM = 34;
-const CBANK_MISC_TEXT = 38;
-const CBANK_TITLE = 42;
-const CBANK_FACE = 42;
+//const CBANK_BG_COMMON = 0;
+//const CBANK_BG = 8;
+const CBANK_SPRITE = 0;
+//const CBANK_ENEMY = 24;
+const CBANK_TEXT = 2;
+//const CBANK_ITEM = 34;
+//const CBANK_MISC_TEXT = 38;
+const CBANK_TITLE = 8;
+const CBANK_FACE = 12;
 
 const PBANK_MENU = 2;
 const PBANK_EVENT = 2;
 const PBANK_DEBUG_MENU = 2;
-const PBANK_EN1 = 3;
-const PBANK_EN2 = 4;
-const PBANK_MY  = 5;
 const PBANK_TITLE = 6;
 const PBANK_FS = 7;
 
