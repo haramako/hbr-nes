@@ -70,12 +70,7 @@ _battle_irq_setup:
     lda #$00
     sta _nes_PPU_ADDR
 
-    ldy #00
-:   lda _battle_pallet0,y
-    sta _nes_PPU_DATA
-    iny
-    cpy #16
-    bne :-
+    write_pallet $3f00, _battle_pallet0, 16
 
     ;; スクロールする
     ldx #0
@@ -202,7 +197,7 @@ battle_irq_3:
     ;; エミュレータの場合
     stop_ppu
     
-    xwait #105
+    xwait #10
 
     write_pallet $3f00,_battle_pallet2,16
     

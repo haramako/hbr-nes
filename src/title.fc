@@ -289,3 +289,4 @@ function do_clear_savedata():int
 }
 
 function irq_setup():void;
+

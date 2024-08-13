@@ -203,6 +203,7 @@ class TiledConverter
 
   def make_enemy_image
     return unless @gd2_loaded
+    puts "ENEMY01 conv"
     img = GD2::Image.import( 'res/images/enemy01.png' )
     tset = NesTools::TileSet.new
     tset.add_from_img( img )
@@ -213,13 +214,13 @@ class TiledConverter
     tile_pal = []
     2.times do |y|
       3.times do |x|
-        tile_pal << ( (get_tile_pal(tset, 12, x*2  , y*2  ) << 0) | 
-                      (get_tile_pal(tset, 12, x*2+2, y*2  ) << 2) |
-                      (get_tile_pal(tset, 12, x*2  , y*2+2) << 4) |
-                      (get_tile_pal(tset, 12, x*2+2, y*2+2) << 6) )
+        tile_pal << ( (get_tile_pal(tset, 12, x*4  , y*4  ) << 0) | 
+                      (get_tile_pal(tset, 12, x*4+2, y*4  ) << 2) |
+                      (get_tile_pal(tset, 12, x*4  , y*4+2) << 4) |
+                      (get_tile_pal(tset, 12, x*4+2, y*4+2) << 6) )
       end
     end
-    
+
     IO.binwrite 'res/images/enemy01.nespal', nes_pal.pack('c*')
     IO.binwrite 'res/images/enemy01.tilepal', tile_pal.pack('c*')
     @fs.add tile_pal, 'ENEMY01_PALLET'

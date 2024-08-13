@@ -174,8 +174,6 @@ const WG_AREA = [10+ 9*16, 0+0*16,
 public function update_palette():void
 {
 	ppu.put( 0x3f00+16, &pallet[16], 16, 0 );
-	//mmc3.set_cbank(4+0, CBANK_ENEMY + en.CBANK_OF_TYPE[area_slot[0]]);
-	//mmc3.set_cbank(4+1, CBANK_ENEMY + en.CBANK_OF_TYPE[area_slot[1]]);
 }
 
 function pal_down(pal:int*, size:int, pow:int):void options(fastcall:true)

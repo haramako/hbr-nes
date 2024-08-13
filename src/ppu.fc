@@ -88,7 +88,7 @@ function put_in_lock(addr:int16, _from:int*, size:int ):void;
 
 function fill_in_lock(addr:int16, size:int16, n:int):void;
 
-function put(addr:int16, _from:int*, size:int, flag:int ):void options(fastcall:true)
+function put(addr:int16, _from:int*, size:int, flag:int ):void //options(fastcall:true)
 {
 	while( gr_idx >= GR_MAX ){
 		vsync_flag = 2;
