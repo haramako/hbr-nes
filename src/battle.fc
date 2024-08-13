@@ -44,7 +44,7 @@ function start(): void
 
 	mem.copy( pallet0, ENEMY01_PAL, 8 );
 	mem.copy( pallet1, FACE_PAL_SET, 16 );
-	mem.copy( pallet2, &FACE_PAL_SET[16], 16 );
+	mem.copy( pallet2, &FACE_PAL_SET[12], 16 );
 	
 
 	ppu.fill_in_lock(0x2000, 256*4, 0);
@@ -60,9 +60,9 @@ function start(): void
 	draw_status(4);
 	draw_status(5);
 
-	draw_face(6,11,4,0);
-	draw_face(9,11,5,1);
-	draw_face(12,11,7,2);
+	draw_face(6,11,4,1);
+	draw_face(9,11,5,2);
+	draw_face(12,11,7,3);
 
 	draw_enemy();
 	draw_enemy_status();
